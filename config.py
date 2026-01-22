@@ -9,7 +9,7 @@ class Config:
         self.API_HASH = getenv("API_HASH")
 
         self.BOT_TOKEN = getenv("BOT_TOKEN")
-        self.MONGO_URL = getenv("MONGO_URL")
+        self.MONGO_URL = getenv("MONGO_DB_URI")  # Railway ENV ile uyumlu
 
         self.LOGGER_ID = int(getenv("LOGGER_ID", 0))
         self.OWNER_ID = int(getenv("OWNER_ID", 0))
@@ -18,7 +18,7 @@ class Config:
         self.QUEUE_LIMIT = int(getenv("QUEUE_LIMIT", 20))
         self.PLAYLIST_LIMIT = int(getenv("PLAYLIST_LIMIT", 20))
 
-        self.SESSION1 = getenv("SESSION", None)
+        self.SESSION1 = getenv("SESSION1", None)  # SESSION1 olarak düzeltildi
         self.SESSION2 = getenv("SESSION2", None)
         self.SESSION3 = getenv("SESSION3", None)
 
