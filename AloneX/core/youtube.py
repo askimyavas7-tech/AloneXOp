@@ -32,6 +32,7 @@ class YouTube:
     def get_cookies(self):
         if not self.checked:
             try:
+                os.makedirs(self.cookie_dir, exist_ok=True)
                 for file in os.listdir(self.cookie_dir):
                     if file.endswith(".txt"):
                         self.cookies.append(f"{self.cookie_dir}/{file}")
@@ -47,21 +48,38 @@ class YouTube:
         return random.choice(self.cookies)
 
     async def save_cookies(self, urls: list[str]) -> None:
+        """
+        Downloads cookies from provided URLs and saves them as .txt files.
+        IMPORTANT: Must download RAW Netscape cookies content, not batbin API JSON.
+        Supports:
+          - https://batbin.me/raw/<id>
+          - https://batbin.me/<id>
+        """
         logger.info("Saving cookies from urls...")
         os.makedirs(self.cookie_dir, exist_ok=True)
 
         async with aiohttp.ClientSession() as session:
             for i, url in enumerate(urls):
+                u = (url or "").strip()
+
+                # If raw is already provided, use it. Otherwise convert paste to raw.
+                if "/raw/" in u:
+                    link = u
+                else:
+                    paste_id = u.split("/")[-1].strip()
+                    link = f"https://batbin.me/raw/{paste_id}"
+
                 path = f"{self.cookie_dir}/cookie_{i}.txt"
-                # batbin paste id: https://batbin.me/<id>  -> api: /api/v2/paste/<id>
-                paste_id = url.split("/")[-1].strip()
-                link = "https://batbin.me/api/v2/paste/" + paste_id
 
                 async with session.get(link) as resp:
                     resp.raise_for_status()
+                    content = await resp.read()
                     with open(path, "wb") as fw:
-                        fw.write(await resp.read())
+                        fw.write(content)
 
+        # reset cookie cache so new files are picked up
+        self.cookies = []
+        self.checked = False
         logger.info(f"Cookies saved in {self.cookie_dir}.")
 
     def valid(self, url: str) -> bool:
@@ -118,9 +136,8 @@ class YouTube:
 
         cookie = self.get_cookies()
 
-        # ✅ Anti-bot / sign-in fix:
-        # - Force android player client
-        # - Provide mobile UA
+        # ✅ Anti-bot improvements:
+        # Force android client + mobile UA (helps with "Sign in to confirm you're not a bot")
         base_opts = {
             "outtmpl": "downloads/%(id)s.%(ext)s",
             "quiet": True,
