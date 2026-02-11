@@ -1,21 +1,20 @@
-FROM python:3.13-slim
+FROM python:3.10-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
-
 RUN apt-get update -y && apt-get upgrade -y \
-    && apt-get install -y --no-install-recommends ffmpeg curl unzip \
+    && apt-get install -y --no-install-recommends ffmpeg curl unzip ca-certificates \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* \
-    && curl -fsSL https://deno.land/install.sh | sh
+    && rm -rf /var/lib/apt/lists/*
 
+# Deno install (stabil link)
+RUN curl -fsSL https://deno.land/x/install/install.sh | sh
 
 ENV DENO_INSTALL="/root/.deno"
 ENV PATH="${DENO_INSTALL}/bin:${PATH}"
 
-
-RUN pip3 install -U pip && pip3 install -U -r requirements.txt
+COPY requirements.txt .
+RUN pip install -U pip && pip install -U -r requirements.txt
 
 COPY . .
 
