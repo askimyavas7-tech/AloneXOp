@@ -1,1 +1,8 @@
+#!/usr/bin/env bash
+set -e
+
+echo "PATH=$PATH"
+which ffmpeg || echo "ffmpeg yok"
+which deno || echo "deno yok"
+
 python3 -m AloneX
