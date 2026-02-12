@@ -30,6 +30,7 @@ class YouTube:
         )
 
     def get_cookies(self):
+        # Cache cookie files once
         if not self.checked:
             try:
                 os.makedirs(self.cookie_dir, exist_ok=True)
@@ -45,15 +46,16 @@ class YouTube:
                 self.warned = True
                 logger.warning("Cookies are missing; downloads might fail.")
             return None
+
         return random.choice(self.cookies)
 
     async def save_cookies(self, urls: list[str]) -> None:
         """
-        Downloads cookies from provided URLs and saves them as .txt files.
-        IMPORTANT: Must download RAW Netscape cookies content, not batbin API JSON.
+        Download RAW Netscape cookies from URLs and save as .txt.
         Supports:
           - https://batbin.me/raw/<id>
           - https://batbin.me/<id>
+        (Do NOT use batbin API JSON.)
         """
         logger.info("Saving cookies from urls...")
         os.makedirs(self.cookie_dir, exist_ok=True)
@@ -62,7 +64,6 @@ class YouTube:
             for i, url in enumerate(urls):
                 u = (url or "").strip()
 
-                # If raw is already provided, use it. Otherwise convert paste to raw.
                 if "/raw/" in u:
                     link = u
                 else:
@@ -77,9 +78,10 @@ class YouTube:
                     with open(path, "wb") as fw:
                         fw.write(content)
 
-        # reset cookie cache so new files are picked up
+        # Reset cache so new cookie files are detected
         self.cookies = []
         self.checked = False
+
         logger.info(f"Cookies saved in {self.cookie_dir}.")
 
     def valid(self, url: str) -> bool:
@@ -136,8 +138,10 @@ class YouTube:
 
         cookie = self.get_cookies()
 
-        # ✅ Anti-bot improvements:
-        # Force android client + mobile UA (helps with "Sign in to confirm you're not a bot")
+        # ✅ Proxysiz anti-bot stabil ayarlar:
+        # - player_client fallback: web + android + ios
+        # - player_skip (webpage/configs): bazen doğrulamayı azaltır
+        # - format esnetme (audio için bestaudio/best)
         base_opts = {
             "outtmpl": "downloads/%(id)s.%(ext)s",
             "quiet": True,
@@ -150,27 +154,35 @@ class YouTube:
 
             "extractor_args": {
                 "youtube": {
-                    "player_client": ["android"]
+                    "player_client": ["web", "android", "ios"],
+                    "player_skip": ["webpage", "configs"],
                 }
             },
+
+            "force_ipv4": True,
+            "retries": 3,
+            "fragment_retries": 3,
+
             "http_headers": {
                 "User-Agent": (
-                    "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 "
-                    "(KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36"
-                )
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                    "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+                ),
+                "Accept-Language": "en-US,en;q=0.9",
             },
         }
 
         if video:
             ydl_opts = {
                 **base_opts,
-                "format": "(bestvideo[height<=?720][width<=?1280][ext=mp4])+(bestaudio)",
+                "format": "(bestvideo[height<=?720][width<=?1280][ext=mp4])+(bestaudio/best)",
                 "merge_output_format": "mp4",
             }
         else:
+            # ✅ Esnek format: bazı videolarda opus/webm seçmek ekstra engel çıkarabiliyor
             ydl_opts = {
                 **base_opts,
-                "format": "bestaudio[ext=webm][acodec=opus]/bestaudio/best",
+                "format": "bestaudio/best",
             }
 
         def _download():
