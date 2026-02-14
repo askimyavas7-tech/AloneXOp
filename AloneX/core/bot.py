@@ -2,30 +2,28 @@
 # Licensed under the MIT License.
 # This file is part of AloneXMusic
 
-import pyrogram
+from pyrogram import Client
 from AloneX import config, logger
 
 
-class Bot(pyrogram.Client):
+class Bot(Client):
     def __init__(self):
         super().__init__(
             name="AloneX",
             api_id=config.API_ID,
             api_hash=config.API_HASH,
             bot_token=config.BOT_TOKEN,
-            parse_mode=pyrogram.enums.ParseMode.HTML,
-            max_concurrent_transmissions=7,
+            parse_mode="html",  # ✅ Pyrogram 1.x uyumlu
         )
 
-        self.owner: int = int(config.OWNER_ID or 0)
-        self.logger_id: int = int(config.LOGGER_ID or 0)
+        self.owner = int(getattr(config, "OWNER_ID", 0) or 0)
+        self.logger_id = int(getattr(config, "LOGGER_ID", 0) or 0)
 
-        # ✅ Bunlar SET olmalı (update() çalışsın diye)
-        self.bl_users: set[int] = set()
-        self.sudoers: set[int] = set([self.owner]) if self.owner else set()
+        # ✅ SET olmalı (update çalışsın)
+        self.bl_users = set()
+        self.sudoers = set([self.owner]) if self.owner else set()
 
     async def boot(self):
-        """Starts the bot and performs initial setup."""
         await super().start()
 
         self.id = self.me.id
@@ -33,14 +31,13 @@ class Bot(pyrogram.Client):
         self.username = self.me.username
         self.mention = self.me.mention
 
-        # ✅ Logger zorunlu değil: yoksa/çalışmıyorsa bot yine de açılır
         if not self.logger_id:
             logger.warning("LOGGER_ID boş/0. Logger kontrolü atlandı, bot çalışıyor.")
             logger.info(f"Bot started as @{self.username}")
             return
 
         try:
-            # Bazı durumlarda peer cache için önce resolve denemek iyi olur
+            # peer resolve
             await self.get_chat(self.logger_id)
 
             await self.send_message(
@@ -49,16 +46,15 @@ class Bot(pyrogram.Client):
                 disable_web_page_preview=True,
             )
 
-            # Admin kontrolü: başarısız olursa botu kapatma, sadece uyar
+            # ✅ Pyrogram 1.x: member.status string döner
             try:
                 member = await self.get_chat_member(self.logger_id, self.id)
-                if member.status != pyrogram.enums.ChatMemberStatus.ADMINISTRATOR:
+                if member.status != "administrator":
                     logger.warning("Bot logger grubunda admin değil. Bot çalışmaya devam edecek.")
             except Exception as ex:
                 logger.warning(f"Logger admin kontrolü yapılamadı. Reason: {ex}")
 
         except Exception as ex:
-            # ❗ En kritik düzeltme: artık SystemExit yok
             logger.warning(
                 f"Logger grubuna erişilemedi (LOGGER_ID={self.logger_id}). "
                 f"Bot çalışmaya devam edecek. Reason: {ex}"
