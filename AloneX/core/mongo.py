@@ -2,11 +2,11 @@
 # Licensed under the MIT License.
 # This file is part of AloneX
 
-
 from random import randint
 from time import time
 
-from pymongo import AsyncMongoClient
+# ✅ Async Mongo client motor ile gelir
+from motor.motor_asyncio import AsyncIOMotorClient as AsyncMongoClient
 
 from AloneX import config, logger, userbot
 
@@ -17,6 +17,8 @@ class MongoDB:
         Initialize the MongoDB connection.
         """
         self.mongo = AsyncMongoClient(config.MONGO_URL, serverSelectionTimeoutMS=12500)
+
+        # Bu proje "Anon" DB'sini kullanıyor (mevcut yapıyı bozmuyoruz)
         self.db = self.mongo.Anon
 
         self.admin_list = {}
@@ -44,11 +46,7 @@ class MongoDB:
         self.usersdb = self.db.users
 
     async def connect(self) -> None:
-        """Check if we can connect to the database.
-
-        Raises:
-            SystemExit: If the connection to the database fails.
-        """
+        """Check if we can connect to the database."""
         try:
             start = time()
             await self.mongo.admin.command("ping")
@@ -59,7 +57,8 @@ class MongoDB:
 
     async def close(self) -> None:
         """Close the connection to the database."""
-        await self.mongo.close()
+        # motor'da close async değildir
+        self.mongo.close()
         logger.info("Database connection closed.")
 
     # CACHE
@@ -151,7 +150,8 @@ class MongoDB:
 
     async def del_blacklist(self, chat_id: int) -> None:
         if str(chat_id).startswith("-"):
-            self.blacklisted.remove(chat_id)
+            if chat_id in self.blacklisted:
+                self.blacklisted.remove(chat_id)
             return await self.cache.update_one(
                 {"_id": "bl_chats"},
                 {"$pull": {"chat_ids": chat_id}},
@@ -199,9 +199,11 @@ class MongoDB:
 
     async def set_cmd_delete(self, chat_id: int, delete: bool = False) -> None:
         if delete:
-            self.cmd_delete.append(chat_id)
+            if chat_id not in self.cmd_delete:
+                self.cmd_delete.append(chat_id)
         else:
-            self.cmd_delete.remove(chat_id)
+            if chat_id in self.cmd_delete:
+                self.cmd_delete.remove(chat_id)
         await self.chatsdb.update_one(
             {"_id": chat_id},
             {"$set": {"cmd_delete": delete}},
@@ -253,7 +255,8 @@ class MongoDB:
         if remove and chat_id in self.admin_play:
             self.admin_play.remove(chat_id)
         else:
-            self.admin_play.append(chat_id)
+            if chat_id not in self.admin_play:
+                self.admin_play.append(chat_id)
         await self.chatsdb.update_one(
             {"_id": chat_id},
             {"$set": {"admin_play": not remove}},
@@ -294,9 +297,9 @@ class MongoDB:
             self.users.extend([user["_id"] async for user in self.usersdb.find()])
         return self.users
 
-
     async def migrate_coll(self) -> None:
         from bson import ObjectId
+
         logger.info("Migrating users and chats from old collections...")
 
         musers, mchats, done = [], [], []
@@ -316,6 +319,7 @@ class MongoDB:
                     continue
                 done.append(user_id)
                 musers.append({"_id": user_id})
+
         await self.usersdb.drop()
         await self.db.tgusersdb.drop()
         if musers:
@@ -334,6 +338,7 @@ class MongoDB:
                     continue
                 done.append(chat_id)
                 mchats.append({"_id": chat_id})
+
         await self.chatsdb.drop()
         if mchats:
             await self.chatsdb.insert_many(mchats)
