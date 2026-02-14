@@ -8,3 +8,4 @@ py-tgcalls==2.2.8
 py-yt-search==0.5.5
 python-dotenv==1.0.1
 yt-dlp==2026.1.29
+motor==3.4.0
