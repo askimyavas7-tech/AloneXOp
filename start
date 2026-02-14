@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -e
 
-echo "PATH=$PATH"
-which ffmpeg || echo "ffmpeg yok"
-which deno || echo "deno yok"
+echo "Python version:"; python -V
+echo "Python path:"; which python
 
-python3 -m AloneX
+echo "FFmpeg:"; which ffmpeg || true
+echo "Deno:"; which deno || true
+
+python -m AloneX
